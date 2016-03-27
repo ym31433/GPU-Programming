@@ -33,53 +33,29 @@ __device__ __host__ int CeilAlign(int a, int b) { return CeilDiv(a, b) * b; }
 
 __global__ void BuildTree_CountPosition(const char* text, int* pos) {
     //build trees
-    //int N = blockDim.x+(WORDLENGTH-1); //number of the bottom nodes of the tree
-//printf("threadIdx.x: %d \n", threadIdx.x);
-/*
-//-----------Angus------------//
-int idx = blockIdx.x * blockDim.x + threadIdx.x;
-     int rootLen = blockDim.x+K;
-     int tidx = threadIdx.x+K+ (rootLen-1);
-     __shared__ int tree[(threadNum+K)*2-1];
-     if(threadIdx.x < K){
-         if(blockIdx.x == 0)
-             tree[tidx-K] = 0;
-         else
-             tree[tidx-K] = (text[idx-K]=='\n')?0:1;
-     }
-     tree[tidx] = (text[idx]=='\n')?0:1;
- 
-     __syncthreads();
-//----------------------------//
-*/
-    int N = blockDim.x + WORDLENGTH-1;
+    int N = blockDim.x + WORDLENGTH-1;  //N has to be assigned blockDim.x not BLOCKSIZE!!!!!!
     __shared__ int tree[(WORDLENGTH+BLOCKSIZE-1)*2-1];
     int textIdx = threadIdx.x + blockIdx.x*blockDim.x;
     int treeIdx = threadIdx.x+(N-1)+(WORDLENGTH-1);
-//printf("textIdx: %d, treeIdx: %d \n", textIdx, treeIdx);
     //initialize the bottom of the tree
     tree[treeIdx] = (text[textIdx] == '\n')? 0: 1;
-
-//printf("text[%d]: %c, tree[%d]: %d \n", textIdx, text[textIdx], treeIdx, tree[treeIdx]);
-
     if(threadIdx.x < (WORDLENGTH-1)) {
         if(blockIdx.x != 0)
             tree[treeIdx-(WORDLENGTH-1)] = (text[textIdx-(WORDLENGTH-1)] == '\n')? 0: 1;
         else
             tree[treeIdx-(WORDLENGTH-1)] = 0;
     }
-
-//    pos[textIdx] = (text[textIdx] == '\n')? 0: 1;
-
     __syncthreads();
 
     //debug
     //if(threadIdx.x < (WORDLENGTH-1) && threadIdx.x != 0) pos[textIdx-(WORDLENGTH-1)] = tree[treeIdx-(WORDLENGTH-1)]; 
     //pos[textIdx] = tree[treeIdx];
-/*
+
     //build the upper tree
     int parent, leftChild, rightChild;
     for(int p = N/2-1; p > 0; p = (p-1)/2 ) { //not including root
+//int p = N/2-1;
+//printf("tree[%d]: %d\n", p, tree[p]);
         parent = threadIdx.x+p;
         leftChild = parent*2+1;
         rightChild = parent*2+2;
@@ -92,11 +68,13 @@ int idx = blockIdx.x * blockDim.x + threadIdx.x;
     //root
     if((tree[1] & tree[2]) == 0) tree[0] = 0;
     else tree[0] = tree[1] + tree[2];
-*/
+
    // printf("Tree[ %d ] = %d \n", treeIdx, tree[treeIdx]);
 
-/*    //count position
+    //count position
     bool lastStep = 1;// 1 from right, 0 from child
+    textIdx = threadIdx.x + blockIdx.x*blockDim.x;
+    treeIdx = threadIdx.x+(N-1)+(WORDLENGTH-1);
     int idx = treeIdx;
     //count up
     while(idx >= 0 && tree[idx] != 0) {
@@ -113,15 +91,16 @@ int idx = blockIdx.x * blockDim.x + threadIdx.x;
             lastStep = 0;
         }
     }
+
     //count down
-    if( ( (idx+1) & -(idx+1) ) == (idx+1) && tree[idx] != 0) return;//if the node is at left most side and is not zero
+    if( ( ( (idx+1) & -(idx+1) ) == (idx+1) && tree[idx] != 0) || idx >= N/2-1) return;//if the node is at left most side and is not zero, or it is the zero bottom node
     if(lastStep) idx = idx*2+2;//from right, next is right child
     else idx = idx*2+1;//from child
     while( idx > 0 && idx < N/2-1 && tree[idx] == 0) {
         idx = idx*2+2;
     }
     pos[textIdx]+=tree[idx];
-*/
+
 }
 
 void CountPosition(const char *text, int *pos, int text_size)
