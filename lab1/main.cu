@@ -8,6 +8,7 @@
 #include "SyncedMemory.h"
 #include "Timer.h"
 #include "counting.h"
+#include <iostream>
 using namespace std;
 
 #define CHECK {\
@@ -62,8 +63,21 @@ tuple<vector<char>, vector<int>, vector<int>> GenerateTestCase(Engine &eng, cons
 	return ret;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char **argffv)
 {
+/*
+    int nDevices;
+    cudaGetDeviceCount(&nDevices);
+    for (int i = 0; i < nDevices; i++) {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, i);
+        printf("Device Number: %d\n", i);
+        printf("  Device name: %s\n", prop.name);
+        printf("Device threads per block: %d\n", prop.maxThreadsPerBlock);
+        printf("Device max thread dimension: %d\n", prop.maxThreadsDim[0]);
+        printf("Device max grid size: %d\n", prop.maxGridSize[0]);
+    }
+*/
 	// Initialize random text
 	default_random_engine engine(12345);
 	auto text_pos_head = GenerateTestCase(engine, 40000000); // 40 MB data
@@ -96,6 +110,13 @@ int main(int argc, char **argv)
 	// Part I check
 	const int *golden = pos.data();
 	const int *yours = pos_yours_sync.get_cpu_ro();
+    //debug
+    for(int i = 0; i != n; ++i) {
+      //printf("text: %d, tree: %d", text[i], pos[i] );
+        cout << "text: " << text[i] << ", pos: " << yours[i] << endl;
+    }
+    
+
 	int n_match1 = mismatch(golden, golden+n, yours).first - golden;
 	if (n_match1 != n) {
 		puts("Part I WA!");

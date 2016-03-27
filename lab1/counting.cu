@@ -7,9 +7,15 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <math.h>
+#include <iostream>
+using namespace std;
 
-#define BLOCKSIZE 525
+#define BLOCKSIZE 524
 #define WORDLENGTH 500
+//#define N BLOCKSIZE+WORDLENGTH //number of the bottom nodes of the tree
+//#define TREESIZE 2*N-1 
+#define K WORDLENGTH
+#define threadNum BLOCKSIZE
 __device__ __host__ int CeilDiv(int a, int b) { return (a-1)/b + 1; }
 __device__ __host__ int CeilAlign(int a, int b) { return CeilDiv(a, b) * b; }
 
@@ -25,24 +31,52 @@ __device__ __host__ int CeilAlign(int a, int b) { return CeilDiv(a, b) * b; }
     return idx;
 }*/
 
-__global__ void BuildTree_CountPosition(const char* text, int* pos, int text_size) {
+__global__ void BuildTree_CountPosition(const char* text, int* pos) {
     //build trees
-    int N;
-    if(blockIdx.x == 0) {
-        N = blockDim.x;
-        __shared__ int tree[2*BLOCKSIZE-1];
-    }
-    else {
-        N = blockDim.x+(WORDLENGTH-1); //number of the bottom nodes of the tree
-        __shared__ int tree[2*(BLOCKSIZE+WORDLENGTH-1)-1];
-    }
-    //cudaMalloc((void**)&tree, sizeof(int)*(N*2-1));
+    //int N = blockDim.x+(WORDLENGTH-1); //number of the bottom nodes of the tree
+//printf("threadIdx.x: %d \n", threadIdx.x);
+/*
+//-----------Angus------------//
+int idx = blockIdx.x * blockDim.x + threadIdx.x;
+     int rootLen = blockDim.x+K;
+     int tidx = threadIdx.x+K+ (rootLen-1);
+     __shared__ int tree[(threadNum+K)*2-1];
+     if(threadIdx.x < K){
+         if(blockIdx.x == 0)
+             tree[tidx-K] = 0;
+         else
+             tree[tidx-K] = (text[idx-K]=='\n')?0:1;
+     }
+     tree[tidx] = (text[idx]=='\n')?0:1;
+ 
+     __syncthreads();
+//----------------------------//
+*/
+    int N = blockDim.x + WORDLENGTH-1;
+    __shared__ int tree[(WORDLENGTH+BLOCKSIZE-1)*2-1];
     int textIdx = threadIdx.x + blockIdx.x*blockDim.x;
-    int treeIdx = (blockIdx.x == 0)? threadIdx.x+(N-1): threadIdx.x+(N-1)+(WORDLENGTH-1);
+    int treeIdx = threadIdx.x+(N-1)+(WORDLENGTH-1);
+//printf("textIdx: %d, treeIdx: %d \n", textIdx, treeIdx);
     //initialize the bottom of the tree
     tree[treeIdx] = (text[textIdx] == '\n')? 0: 1;
-    if(blockIdx.x != 0 && threadIdx.x < (WORDLENGTH-1)) tree[treeIdx-(WORDLENGTH-1)] = (text[textIdx-(WORDLENGTH-1)] == '\n')? 0: 1;
+
+//printf("text[%d]: %c, tree[%d]: %d \n", textIdx, text[textIdx], treeIdx, tree[treeIdx]);
+
+    if(threadIdx.x < (WORDLENGTH-1)) {
+        if(blockIdx.x != 0)
+            tree[treeIdx-(WORDLENGTH-1)] = (text[textIdx-(WORDLENGTH-1)] == '\n')? 0: 1;
+        else
+            tree[treeIdx-(WORDLENGTH-1)] = 0;
+    }
+
+//    pos[textIdx] = (text[textIdx] == '\n')? 0: 1;
+
     __syncthreads();
+
+    //debug
+    //if(threadIdx.x < (WORDLENGTH-1) && threadIdx.x != 0) pos[textIdx-(WORDLENGTH-1)] = tree[treeIdx-(WORDLENGTH-1)]; 
+    //pos[textIdx] = tree[treeIdx];
+/*
     //build the upper tree
     int parent, leftChild, rightChild;
     for(int p = N/2-1; p > 0; p = (p-1)/2 ) { //not including root
@@ -54,10 +88,14 @@ __global__ void BuildTree_CountPosition(const char* text, int* pos, int text_siz
         }
         __syncthreads();
     }
+
     //root
     if((tree[1] & tree[2]) == 0) tree[0] = 0;
     else tree[0] = tree[1] + tree[2];
-    //count position
+*/
+   // printf("Tree[ %d ] = %d \n", treeIdx, tree[treeIdx]);
+
+/*    //count position
     bool lastStep = 1;// 1 from right, 0 from child
     int idx = treeIdx;
     //count up
@@ -83,35 +121,13 @@ __global__ void BuildTree_CountPosition(const char* text, int* pos, int text_siz
         idx = idx*2+2;
     }
     pos[textIdx]+=tree[idx];
+*/
 }
 
 void CountPosition(const char *text, int *pos, int text_size)
 {
-    //try to let gpu build trees
-    //int N = text_size/512+1;//number of trees
+    BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos);
 
-    /*fool!!!don't need to pass array into gpu!!!!
-    MemoryBuffer<int> tree[N];
-    auto tree_sync[N];
-    int* tree_gpu[N];
-    for(int i = 0; i != N; ++i) {
-        cudaMalloc(&tree[i], sizeof(int)*1023); 
-        tree_sync[i] = tree[i].CreateSync(1023);
-        tree_gpu[i] = tree_sync.get_gpu_rw();
-        cudaMemset(tree_gpu[i], 0, sizeof(int)*1023);
-    }*/
-    BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos, text_size);
-    
-    //int* tree_cpu = tree_sync.get_cpu_rw();
-    /*for(int i = text_size; i != text_size*2; ++i) {
-        tree_cpu[i] = (text[i-text_size] == 32)? 0: 1;
-    }
-    for(int i = text_size; i != 0; --i) {
-        if(tree_cpu[])
-        tree_cpu[i-1] = (tree_)
-    }*/
-
-    
 }
 
 int ExtractHead(const int *pos, int *head, int text_size)
