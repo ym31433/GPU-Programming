@@ -30,7 +30,8 @@ __global__ void CountPosition_slow(const char* text, int* pos) {
     }
 }
 
-__global__ void BuildTree_CountPosition(const char* text, int* pos, int* debug_tree) {
+__global__ void BuildTree_CountPosition(const char* text, int* pos) {
+//__global__ void BuildTree_CountPosition(const char* text, int* pos, int* debug_tree) {
     //build trees
     int N = blockDim.x + WORDLENGTH-1;  //N has to be assigned blockDim.x not BLOCKSIZE!!!!!!
     __shared__ int tree[(WORDLENGTH+BLOCKSIZE-1)*2-1];
@@ -38,11 +39,11 @@ __global__ void BuildTree_CountPosition(const char* text, int* pos, int* debug_t
     int treeIdx = threadIdx.x+(N-1)+(WORDLENGTH-1);
     //initialize the bottom of the tree
     tree[treeIdx] = (text[textIdx] == '\n')? 0: 1;
-if(blockIdx.x == 1) debug_tree[treeIdx] = tree[treeIdx];
+//if(blockIdx.x == 1) debug_tree[treeIdx] = tree[treeIdx];
     if(threadIdx.x < (WORDLENGTH-1)) {
         if(blockIdx.x != 0) {
             tree[treeIdx-(WORDLENGTH-1)] = (text[textIdx-(WORDLENGTH-1)] == '\n')? 0: 1;
-if(blockIdx.x == 1) debug_tree[treeIdx-(WORDLENGTH-1)] = tree[treeIdx-(WORDLENGTH-1)];
+//if(blockIdx.x == 1) debug_tree[treeIdx-(WORDLENGTH-1)] = tree[treeIdx-(WORDLENGTH-1)];
         }
         else
             tree[treeIdx-(WORDLENGTH-1)] = 0;
@@ -63,7 +64,7 @@ if(blockIdx.x == 1) debug_tree[treeIdx-(WORDLENGTH-1)] = tree[treeIdx-(WORDLENGT
         if(threadIdx.x <= p) {
             tree[parent] = ( (tree[leftChild] & tree[rightChild]) == 0)? 0: tree[leftChild]+tree[rightChild];
 //pos[ threadIdx.x + blockIdx.x*blockDim.x] = tree[parent];
-if(blockIdx.x == 1) debug_tree[parent] = tree[parent];
+//if(blockIdx.x == 1) debug_tree[parent] = tree[parent];
         }
         __syncthreads();
     }
@@ -71,7 +72,7 @@ if(blockIdx.x == 1) debug_tree[parent] = tree[parent];
     //root
     if((tree[1] & tree[2]) == 0) tree[0] = 0;
     else tree[0] = tree[1] + tree[2];
-if(blockIdx.x == 1) debug_tree[0] = tree[0];
+//if(blockIdx.x == 1) debug_tree[0] = tree[0];
    // printf("Tree[ %d ] = %d \n", treeIdx, tree[treeIdx]);
 
     //count position
@@ -106,8 +107,10 @@ if(blockIdx.x == 1) debug_tree[0] = tree[0];
 
 }
 
-void CountPosition(const char *text, int *pos, int* debug_tree, int text_size)
+void CountPosition(const char *text, int *pos, int text_size)
+//void CountPosition(const char *text, int *pos, int* debug_tree, int text_size)
 {
+    //BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos);
     //BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos, debug_tree);
     CountPosition_slow<<<(text_size+1023)/1024, 1024>>>(text, pos);
 }
@@ -155,9 +158,10 @@ __global__ void Part3_assign(char* text, char* temp_text) {
 
 void Part3(char *text, int *pos, int *head, int text_size, int n_head)
 {
+//1 & 3 swap, 2 & 4 swap, etc. For the last charaters that don't have partner to swap, fill it with '-'.
     char *temp_text;
     cudaMalloc(&temp_text, sizeof(char)*text_size);
     Part3_transform<<<(text_size+1023)/1024, 1024>>>(text, temp_text, pos);     
     Part3_assign<<<(text_size+1023)/1024, 1024>>>(text, temp_text);
-    
+    cudaFree(temp_text);    
 }

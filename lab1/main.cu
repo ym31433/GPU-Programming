@@ -94,13 +94,13 @@ int main(int argc, char **argffv)
 	MemoryBuffer<int> pos_yours(n), head_yours(n);
 	auto pos_yours_sync = pos_yours.CreateSync(n);
 	auto head_yours_sync = head_yours.CreateSync(n);
-
+/*
     //debug
     MemoryBuffer<int> debug_tree(2047);
     auto debug_tree_sync = debug_tree.CreateSync(2047);
     int* debug_tree_gpu = debug_tree_sync.get_gpu_wo();
     const int* debug_tree_cpu = debug_tree_sync.get_cpu_ro();
-
+*/
 	// Create timers
 	Timer timer_count_position;
 
@@ -108,7 +108,8 @@ int main(int argc, char **argffv)
 	timer_count_position.Start();
 	int *pos_yours_gpu = pos_yours_sync.get_gpu_wo();
 	cudaMemset(pos_yours_gpu, 0, sizeof(int)*n);
-	CountPosition(text_sync.get_gpu_ro(), pos_yours_gpu, debug_tree_gpu, n);
+	CountPosition(text_sync.get_gpu_ro(), pos_yours_gpu, n);
+//CountPosition(text_sync.get_gpu_ro(), pos_yours_gpu, debug_tree_gpu, n);
 	CHECK;
 	timer_count_position.Pause();
 	printf_timer(timer_count_position);
