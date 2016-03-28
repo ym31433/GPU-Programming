@@ -135,6 +135,7 @@ printf("n_match1: %d\n", n_match1);
 printf("n: %d\n", n);
 		copy_n(golden, n, pos_yours_sync.get_cpu_wo());
 	}
+//for(int i = 300; i != 400; ++i) cout << "text[" << i << "]: " << text[i] << endl;
 
 	// Part II
 	int *head_yours_gpu = head_yours_sync.get_gpu_wo();
@@ -162,7 +163,8 @@ printf("n: %d\n", n);
 	// Do whatever your want
 	Part3(text_gpu, pos_yours_sync.get_gpu_rw(), head_yours_sync.get_gpu_rw(), n, n_head);
 	CHECK;
-//for(int i = 0; i != n; ++i) cout << "text[" << i << "]: " << text[i] << endl;
+//text_sync.get_cpu_ro();
+//for(int i = 50; i != 60; ++i) cout << "text_gpu[" << i << "]: " << text_gpu[i] << endl;
 
 	cudaFree(text_gpu);
 	return 0;

@@ -14,20 +14,19 @@ using namespace std;
 
 #define BLOCKSIZE 524
 #define WORDLENGTH 500
-//#define N BLOCKSIZE+WORDLENGTH //number of the bottom nodes of the tree
-//#define TREESIZE 2*N-1 
 #define K WORDLENGTH
 #define threadNum BLOCKSIZE
 __device__ __host__ int CeilDiv(int a, int b) { return (a-1)/b + 1; }
 __device__ __host__ int CeilAlign(int a, int b) { return CeilDiv(a, b) * b; }
 
 __global__ void CountPosition_slow(const char* text, int* pos) {
-    int posIdx = threadIdx.x + blockIdx.x*blockDim.x;
     int textIdx = threadIdx.x + blockIdx.x*blockDim.x;
+    int result = pos[textIdx];
     while(textIdx >= 0 && text[textIdx] != '\n') {
-        pos[posIdx]++;
+        result++;
         textIdx--;
     }
+    pos[ threadIdx.x + blockIdx.x*blockDim.x] = result;
 }
 
 __global__ void BuildTree_CountPosition(const char* text, int* pos) {
@@ -154,14 +153,19 @@ __global__ void Part3_transform(char* text, char* temp_text, int* pos) {
 __global__ void Part3_assign(char* text, char* temp_text) {
     int idx = threadIdx.x + blockIdx.x*blockDim.x;
     text[idx] = temp_text[idx];
+
+//if(idx >= 300 && idx < 400) printf("text_gpu[%d] = %c\n", idx, text[idx]);
 }
 
 void Part3(char *text, int *pos, int *head, int text_size, int n_head)
 {
-//1 & 3 swap, 2 & 4 swap, etc. For the last charaters that don't have partner to swap, fill it with '-'.
+//Characters of the 1st & the 3rd position swap; the 2nd & the 4th swap; 5th & 7th swap, etc. 
+//For the last charaters (at most 2 characters) that don't have a partner to swap, fill them with '-'.
+
     char *temp_text;
     cudaMalloc(&temp_text, sizeof(char)*text_size);
     Part3_transform<<<(text_size+1023)/1024, 1024>>>(text, temp_text, pos);     
     Part3_assign<<<(text_size+1023)/1024, 1024>>>(text, temp_text);
     cudaFree(temp_text);    
+
 }
