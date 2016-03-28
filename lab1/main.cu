@@ -161,7 +161,7 @@ printf("n: %d\n", n);
 	// Do whatever your want
 	Part3(text_gpu, pos_yours_sync.get_gpu_rw(), head_yours_sync.get_gpu_rw(), n, n_head);
 	CHECK;
-for(int i = 0; i != n; ++i) cout << "text[" << i << "]: " << text[i] << endl;
+//for(int i = 0; i != n; ++i) cout << "text[" << i << "]: " << text[i] << endl;
 
 	cudaFree(text_gpu);
 	return 0;
