@@ -95,6 +95,12 @@ int main(int argc, char **argffv)
 	auto pos_yours_sync = pos_yours.CreateSync(n);
 	auto head_yours_sync = head_yours.CreateSync(n);
 
+    //debug
+    MemoryBuffer<int> debug_tree(2047);
+    auto debug_tree_sync = debug_tree.CreateSync(2047);
+    int* debug_tree_gpu = debug_tree_sync.get_gpu_wo();
+    const int* debug_tree_cpu = debug_tree_sync.get_cpu_ro();
+
 	// Create timers
 	Timer timer_count_position;
 
@@ -102,7 +108,7 @@ int main(int argc, char **argffv)
 	timer_count_position.Start();
 	int *pos_yours_gpu = pos_yours_sync.get_gpu_wo();
 	cudaMemset(pos_yours_gpu, 0, sizeof(int)*n);
-	CountPosition(text_sync.get_gpu_ro(), pos_yours_gpu, n);
+	CountPosition(text_sync.get_gpu_ro(), pos_yours_gpu, debug_tree_gpu, n);
 	CHECK;
 	timer_count_position.Pause();
 	printf_timer(timer_count_position);
@@ -110,16 +116,22 @@ int main(int argc, char **argffv)
 	// Part I check
 	const int *golden = pos.data();
 	const int *yours = pos_yours_sync.get_cpu_ro();
+
     //debug
-    for(int i = 0; i != n; ++i) {
+/*    for(int i = 0; i != n; ++i) {
       //printf("text: %d, tree: %d", text[i], pos[i] );
         cout << "text: " << text[i] << ", pos: " << yours[i] << endl;
-    }
+    }*/
+/*    for(int i = 0; i != 2047; ++i) {
+        cout << "tree[" << i << "] = " << debug_tree_cpu[i] << endl;
+    }*/
     
 
 	int n_match1 = mismatch(golden, golden+n, yours).first - golden;
 	if (n_match1 != n) {
 		puts("Part I WA!");
+printf("n_match1: %d\n", n_match1);
+printf("n: %d\n", n);
 		copy_n(golden, n, pos_yours_sync.get_cpu_wo());
 	}
 
@@ -149,6 +161,7 @@ int main(int argc, char **argffv)
 	// Do whatever your want
 	Part3(text_gpu, pos_yours_sync.get_gpu_rw(), head_yours_sync.get_gpu_rw(), n, n_head);
 	CHECK;
+for(int i = 0; i != n; ++i) cout << "text[" << i << "]: " << text[i] << endl;
 
 	cudaFree(text_gpu);
 	return 0;
