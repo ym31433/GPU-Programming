@@ -6,6 +6,9 @@
 #include <thrust/functional.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/sequence.h>
 #include <math.h>
 #include <iostream>
 using namespace std;
@@ -55,12 +58,13 @@ __global__ void BuildTree_CountPosition(const char* text, int* pos) {
     int parent, leftChild, rightChild;
     for(int p = N/2-1; p > 0; p = (p-1)/2 ) { //not including root
 //int p = N/2-1;
-//printf("tree[%d]: %d\n", p, tree[p]);
         parent = threadIdx.x+p;
         leftChild = parent*2+1;
         rightChild = parent*2+2;
         if(threadIdx.x <= p) {
             tree[parent] = ( (tree[leftChild] & tree[rightChild]) == 0)? 0: tree[leftChild]+tree[rightChild];
+//pos[ threadIdx.x + blockIdx.x*blockDim.x] = tree[parent];
+//printf("tree[%d]: %d\n", parent, tree[parent]);
         }
         __syncthreads();
     }
@@ -105,9 +109,16 @@ __global__ void BuildTree_CountPosition(const char* text, int* pos) {
 
 void CountPosition(const char *text, int *pos, int text_size)
 {
-    BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos);
+//    BuildTree_CountPosition<<<(text_size+BLOCKSIZE-1)/BLOCKSIZE, BLOCKSIZE>>>(text, pos);
 
 }
+
+struct isOne {
+    __host__ __device__
+    bool operator()(const int x) {
+        return (x == 1);
+    }
+};
 
 int ExtractHead(const int *pos, int *head, int text_size)
 {
@@ -118,16 +129,8 @@ int ExtractHead(const int *pos, int *head, int text_size)
 	thrust::device_ptr<int> head_d(head), flag_d(buffer), cumsum_d(buffer+text_size);
 
 	// TODO
-/*    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int headIdx = 0;
-    if(idx < text_size ) {
-        if(pos[idx] == 1) {
-            head[headIdx++] = idx; 
-        }
-    } 
-*/
-    nhead = 0;
-
+    thrust::sequence(flag_d, cumsum_d);
+    nhead = thrust::copy_if(flag_d, cumsum_d, pos_d, head_d, isOne()) - head_d;
 //do not touch this
 	cudaFree(buffer);
 	return nhead;
