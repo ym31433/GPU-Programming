@@ -33,13 +33,28 @@ Lab2VideoGenerator::Lab2VideoGenerator(): impl(new Impl) {
         impl->t_start[i] = 0;
         impl->vx[i] = (i&1)? -10: 10;
         impl->vy[i] = 0;
-        impl->x0[i] = i*100;//rand()%W;
-        impl->y0[i] = i*20;//rand()/W;
     }
+    impl->x0[0] = 20;//rand()%W;
+    impl->y0[0] = 20;//rand()/W;
+    impl->x0[1] = 120;//rand()%W;
+    impl->y0[1] = 25;//rand()/W;
+    impl->x0[2] = 220;//rand()%W;
+    impl->y0[2] = 30;//rand()/W;
+    impl->x0[3] = 320;//rand()%W;
+    impl->y0[3] = 50;//rand()/W;
+    impl->x0[4] = 420;//rand()%W;
+    impl->y0[4] = 40;//rand()/W;
+
 }
 
 Lab2VideoGenerator::~Lab2VideoGenerator() {
+    delete [] impl->t_start;
+    delete [] impl->vx;
+    delete [] impl->vy;
+    delete [] impl->x0;
+    delete [] impl->y0;
 }
+
 
 void Lab2VideoGenerator::get_info(Lab2VideoInfo &info) {
 	info.w = W;
@@ -96,14 +111,30 @@ __global__ void frame_generate(uint8_t* yuv, const uint8_t* t, const double* coo
     yuv[idx] = 255;
     fillUV(yuv, x, y, 128, 128);
 
-    for(int i = 0; i != n_balls; ++i) {
     //ball
-        if(isInBall(x, y, (int)coor[i*2+1], (int)coor[i*2], rBall)) {
-            yuv[idx] = 76;
-            fillUV(yuv, x, y, 84, 225);
-        }
+    if(isInBall(x, y, (int)coor[1], (int)coor[0], rBall)) {
+        yuv[idx] = 76;
+        fillUV(yuv, x, y, 84, 225);
+    }
+    if(isInBall(x, y, (int)coor[3], (int)coor[2], rBall)) {
+        yuv[idx] = 204;
+        fillUV(yuv, x, y, 29, 153);
+    }
+    if(isInBall(x, y, (int)coor[5], (int)coor[4], rBall)) {
+        yuv[idx] = 29;
+        fillUV(yuv, x, y, 255, 107);
+    }
+    if(isInBall(x, y, (int)coor[7], (int)coor[6], rBall)) {
+        yuv[idx] = 202;
+        fillUV(yuv, x, y, 126, 54);
+    }
+    if(isInBall(x, y, (int)coor[9], (int)coor[8], rBall)) {
+        yuv[idx] = 52;
+        fillUV(yuv, x, y, 211, 161);
+    }
     //shadow
-        else if(isInEllipse(x, y, coor[i*2+1], coor[i*2])) {
+    for(int i = 0; i != n_balls; ++i) {
+        if(isInEllipse(x, y, coor[i*2+1], coor[i*2])) {
             yuv[idx] = 128;
             fillUV(yuv, x, y, 128, 128);
         }
@@ -140,32 +171,50 @@ void Lab2VideoGenerator::Generate(uint8_t *yuv) {
             double deltaX = c_ptr[i*2+1] - c_ptr[j*2+1];
             double deltaY = c_ptr[i*2] - c_ptr[j*2];
             double lengthBall = deltaX*deltaX+deltaY*deltaY;
-            if(lengthBall <= 4*rBall*rBall) {
+            if(lengthBall <= 4*(double)rBall*(double)rBall && impl->t_start[i] > 0) {
                 double lengthI = (impl->vx[i])*(impl->vx[i])+(impl->vy[i])*(impl->vy[i]);
                 double lengthJ = (impl->vx[j])*(impl->vx[j])+(impl->vy[j])*(impl->vy[j]);
                 double cosI = ( (impl->vx[i]*deltaX+impl->vy[i]*deltaY)/(sqrt(lengthBall)*sqrt(lengthI)) );
-                impl->vx[j] = 1.2*deltaX*sqrt(lengthI)*cosI/sqrt(lengthBall);
-                impl->vy[j] = 1.2*deltaY*sqrt(lengthI)*cosI/sqrt(lengthBall);
+                impl->vx[j] = 1*deltaX*sqrt(lengthI)*cosI/sqrt(lengthBall);
+                impl->vy[j] = 1*deltaY*sqrt(lengthI)*cosI/sqrt(lengthBall);
                 double cosJ = -( (impl->vx[j]*deltaX+impl->vy[j]*deltaY)/(sqrt(lengthBall)*sqrt(lengthJ)) );
-                impl->vx[i] = 1.2*deltaX*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
-                impl->vy[i] = 1.2*deltaY*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
+                impl->vx[i] = 1*deltaX*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
+                impl->vy[i] = 1*deltaY*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
         
+                lengthI = (impl->vx[i])*(impl->vx[i])+(impl->vy[i])*(impl->vy[i]);
+                lengthJ = (impl->vx[j])*(impl->vx[j])+(impl->vy[j])*(impl->vy[j]);
                 impl->t_start[i] = impl->t;
                 impl->t_start[j] = impl->t;
-                impl->x0[i] = c_ptr[i*2+1];
-                impl->y0[i] = c_ptr[i*2];
-                impl->x0[j] = c_ptr[j*2+1];
-                impl->y0[j] = c_ptr[j*2];
+                impl->x0[i] = c_ptr[i*2+1]+impl->vx[i]*30/(FACTORT*sqrt(lengthI));
+                impl->y0[i] = c_ptr[i*2]+impl->vy[i]*30/(FACTORT*sqrt(lengthI));
+                impl->x0[j] = c_ptr[j*2+1]+impl->vx[j]*30/(FACTORT*sqrt(lengthJ));
+                impl->y0[j] = c_ptr[j*2]+impl->vy[j]*30/(FACTORT*sqrt(lengthJ));
             }
         }
     }
-//floor
     for(int i = 0; i != n_balls; ++i) {
+//floor
         if(c_ptr[i*2] >= H-rBall) {
-            impl->vy[i] = -0.999*(impl->vy[i] + g*(double)(impl->t - impl->t_start[i])/FACTORT);
+            impl->vy[i] = -0.95*(impl->vy[i] + g*(double)(impl->t - impl->t_start[i])/FACTORT);
             impl->t_start[i] = impl->t;
             impl->x0[i] = c_ptr[i*2+1];
             impl->y0[i] = c_ptr[i*2];
+        }
+//wall
+        else if(c_ptr[i*2+1] <= rBall || c_ptr[i*2+1] >= W-rBall) {
+            impl->vx[i] = -impl->vx[i];
+            impl->vy[i] = (impl->vy[i] + g*(double)(impl->t - impl->t_start[i])/FACTORT);
+            impl->t_start[i] = impl->t;
+            impl->x0[i] = c_ptr[i*2+1];
+            impl->y0[i] = c_ptr[i*2];
+        }
+//ceiling
+        else if(c_ptr[i*2] <= rBall) {
+            impl->vy[i] = -1.05*(impl->vy[i] + g*(double)(impl->t - impl->t_start[i])/FACTORT);
+            impl->t_start[i] = impl->t;
+            impl->x0[i] = c_ptr[i*2+1];
+            impl->y0[i] = c_ptr[i*2];
+            
         }
     }
 
