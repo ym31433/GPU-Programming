@@ -6,11 +6,13 @@ using std::unique_ptr;
 struct Lab2VideoInfo {
 	unsigned w, h, n_frame;
 	unsigned fps_n, fps_d;
+//    double** X, Y;
 };
 
 class Lab2VideoGenerator {
 	struct Impl;
 	unique_ptr<Impl> impl;
+//    double** U, V;
 public:
 	Lab2VideoGenerator();
 	~Lab2VideoGenerator();
