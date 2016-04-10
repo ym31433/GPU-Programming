@@ -10,45 +10,35 @@ static const unsigned NFRAME = 240;
 static const unsigned SIZE = W*H;
 static const unsigned FACTORX = 50;
 static const unsigned FACTORT = 5;
-static const double vx = 10;
 static const double g = 9.8;
 static const unsigned rBall = 20;
 static const unsigned aEllipse = 20;
 static const unsigned bEllipse = 7;
-static const double lightX = 0;
-static const double lightY = -500;
-//static const unsigned sps = 40;
-//static const unsigned xn = W/sps;
-//static const unsigned yn = H/sps;
+static const double lightX = 10;
+static const double lightY = 0;
+static const unsigned n_balls = 5; //number of balls
 
 struct Lab2VideoGenerator::Impl {
 	int t = 0;
-    int t_start = 0;
-    double vy = 0;
-    double x0 = 0;
-    double y0 = 100;
+    int* t_start = new int[n_balls];
+    double* vx = new double[n_balls];
+    double* vy = new double[n_balls];
+    double* x0 = new double[n_balls];
+    double* y0 = new double[n_balls];
 };
 
 Lab2VideoGenerator::Lab2VideoGenerator(): impl(new Impl) {
-/*
-    U = new double*[yn+1];
-    V = new double*[yn+1];
-    for(int i = 0; i != yn+1; ++i) {
-        U[i] = new double[xn+1];
-        V[i] = new double[xn+1];
+    srand(0);
+    for(int i = 0; i != n_balls; ++i) {
+        impl->t_start[i] = 0;
+        impl->vx[i] = (i&1)? -10: 10;
+        impl->vy[i] = 0;
+        impl->x0[i] = i*100;//rand()%W;
+        impl->y0[i] = i*20;//rand()/W;
     }
-*/
 }
 
 Lab2VideoGenerator::~Lab2VideoGenerator() {
-/*
-    for(int i = 0; i != yn+1; ++i) {
-        delete [] U[i];
-        delete [] V[i];
-    }
-    delete [] U;
-    delete [] V;
-*/
 }
 
 void Lab2VideoGenerator::get_info(Lab2VideoInfo &info) {
@@ -58,22 +48,6 @@ void Lab2VideoGenerator::get_info(Lab2VideoInfo &info) {
 	// fps = 24/1 = 24
 	info.fps_n = 24;
 	info.fps_d = 1;
-/*
-    info.X = new double*[H];
-    info.Y = new double*[H];
-    for(int i = 0; i != W; ++i) {
-        info.X[i] = new double[W];
-        info.Y[i] = new double[W];
-    }
-    int w = xn/(W-1);
-    int h = yn/(H-1);
-    for(int i = 0; i != H; ++i) {
-        for(int j = 0; j != W; ++j) {
-            X[i][j] = w*j;
-            Y[i][j] = h*i;
-        }
-    }
-*/
 };
 
 __device__ int sine(const int& x, const uint8_t* t, const int& factorY, const bool& right) {
@@ -119,69 +93,82 @@ __global__ void frame_generate(uint8_t* yuv, const uint8_t* t, const double* coo
     else if(isSine(y, sine2+240)) yuv[idx] = 170;
     else yuv[idx] = 255;
 */
-//ball
+    yuv[idx] = 255;
+    fillUV(yuv, x, y, 128, 128);
 
-    if(isInBall(x, y, (int)coor[1], (int)coor[0], 5)) {
-        yuv[idx] = 0;
-        fillUV(yuv, x, y, 128, 128);
+    for(int i = 0; i != n_balls; ++i) {
+    //ball
+        if(isInBall(x, y, (int)coor[i*2+1], (int)coor[i*2], rBall)) {
+            yuv[idx] = 76;
+            fillUV(yuv, x, y, 84, 225);
+        }
+    //shadow
+        else if(isInEllipse(x, y, coor[i*2+1], coor[i*2])) {
+            yuv[idx] = 128;
+            fillUV(yuv, x, y, 128, 128);
+        }
     }
-    else if(isInBall(x, y, (int)coor[1], (int)coor[0], rBall)) {
-        yuv[idx] = 76;
-        fillUV(yuv, x, y, 84, 225);
+/*//light
+    else if(isInBall(x, y, (int)lightX, (int)lightY, 10)) {
+        yuv[idx] = 204;
+        fillUV(yuv, x, y, 29, 153);
     }
-//shadow
-    else if(isInEllipse(x, y, coor[1], coor[0])) {
-        yuv[idx] = 128;
-        fillUV(yuv, x, y, 128, 128);
-    }
-    else {
-        yuv[idx] = 255;
-        fillUV(yuv, x, y, 128, 128);
-    }
+*/
 }
 
 void Lab2VideoGenerator::Generate(uint8_t *yuv) {
-//perlin noise
-/*
-    for(int i = 0; i != yn+1; ++i) {
-        for(int j = 0; j != xn+1; ++j) {
-            U[i][j] = rand()*2/RAND_MAX - 1;
-            V[i][j] = rand()*2/RAND_MAX - 1;
-        }
-    }
-    int xc, yc;
-    double//contiune from here
-    for(int i = 0; i != H; ++i) {
-        for(int j = 0; j != W; ++j) {
-            xc = (int)X[i][j];
-            yc = (int)Y[i][j];
-            if( !fmod(X[i][j],1) && !xc ) xc = xc-1;
-            if( !fmod(Y[i][j],1) && !yc ) yc = yc-1;
-        }
-    }
-*/
     MemoryBuffer<uint8_t> t(1);
     auto t_sync = t.CreateSync(1);
     *(t_sync.get_cpu_wo()) = impl->t;
 
-    MemoryBuffer<double> coordinates(2);//y, x
-    auto c_sync = coordinates.CreateSync(2);
-    double* c_ptr = c_sync.get_cpu_wo();
-    double time = (double)(impl->t - impl->t_start)/FACTORT;
+    MemoryBuffer<double> coordinates(n_balls*2);
+    auto c_sync = coordinates.CreateSync(n_balls*2);
+    double* c_ptr = c_sync.get_cpu_rw();
 //cout << "time = " << time << endl;
-    c_ptr[0] = impl->y0 + (impl->vy)*time + g*time*time/2;
-    c_ptr[1] = impl->x0 + vx*time;
+    for(int i = 0; i != n_balls; ++i) {
+        double time = (double)(impl->t - impl->t_start[i])/FACTORT;
+        c_ptr[i*2] = impl->y0[i] + (impl->vy[i])*time + g*time*time/2;
+        c_ptr[i*2+1] = impl->x0[i] + impl->vx[i]*time;
+    }
 //cout << "(x, y) = (" << c_ptr[1] << ", " << c_ptr[0] << ")" << endl;
 
+//ball collision
     frame_generate<<<(SIZE+1023)/1024, 1024>>>(yuv, t_sync.get_gpu_ro(), c_sync.get_gpu_ro());
-//	cudaMemset(yuv, (impl->t)*255/NFRAME, W*H);
-//	cudaMemset(yuv+W*H, 128, W*H/2);
-    if(c_ptr[0] >= H-rBall) {
-        impl->vy = -0.95*(impl->vy + g*time);
-        impl->t_start = impl->t;
-        impl->x0 = c_ptr[1];
-        impl->y0 = c_ptr[0];
+
+    for(int i = 0; i != n_balls-1; ++i) {
+        for(int j = i+1; j != n_balls; ++j) {
+            double deltaX = c_ptr[i*2+1] - c_ptr[j*2+1];
+            double deltaY = c_ptr[i*2] - c_ptr[j*2];
+            double lengthBall = deltaX*deltaX+deltaY*deltaY;
+            if(lengthBall <= 4*rBall*rBall) {
+                double lengthI = (impl->vx[i])*(impl->vx[i])+(impl->vy[i])*(impl->vy[i]);
+                double lengthJ = (impl->vx[j])*(impl->vx[j])+(impl->vy[j])*(impl->vy[j]);
+                double cosI = ( (impl->vx[i]*deltaX+impl->vy[i]*deltaY)/(sqrt(lengthBall)*sqrt(lengthI)) );
+                impl->vx[j] = 1.2*deltaX*sqrt(lengthI)*cosI/sqrt(lengthBall);
+                impl->vy[j] = 1.2*deltaY*sqrt(lengthI)*cosI/sqrt(lengthBall);
+                double cosJ = -( (impl->vx[j]*deltaX+impl->vy[j]*deltaY)/(sqrt(lengthBall)*sqrt(lengthJ)) );
+                impl->vx[i] = 1.2*deltaX*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
+                impl->vy[i] = 1.2*deltaY*sqrt(lengthJ)*cosJ/sqrt(lengthBall);
+        
+                impl->t_start[i] = impl->t;
+                impl->t_start[j] = impl->t;
+                impl->x0[i] = c_ptr[i*2+1];
+                impl->y0[i] = c_ptr[i*2];
+                impl->x0[j] = c_ptr[j*2+1];
+                impl->y0[j] = c_ptr[j*2];
+            }
+        }
     }
+//floor
+    for(int i = 0; i != n_balls; ++i) {
+        if(c_ptr[i*2] >= H-rBall) {
+            impl->vy[i] = -0.999*(impl->vy[i] + g*(double)(impl->t - impl->t_start[i])/FACTORT);
+            impl->t_start[i] = impl->t;
+            impl->x0[i] = c_ptr[i*2+1];
+            impl->y0[i] = c_ptr[i*2];
+        }
+    }
+
 	++(impl->t);
 
 }
