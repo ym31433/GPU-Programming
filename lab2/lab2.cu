@@ -39,11 +39,11 @@ Lab2VideoGenerator::Lab2VideoGenerator(): impl(new Impl) {
     impl->x0[1] = 120;//rand()%W;
     impl->y0[1] = 25;//rand()/W;
     impl->x0[2] = 220;//rand()%W;
-    impl->y0[2] = 30;//rand()/W;
+    impl->y0[2] = 150;//rand()/W;
     impl->x0[3] = 320;//rand()%W;
     impl->y0[3] = 50;//rand()/W;
     impl->x0[4] = 420;//rand()%W;
-    impl->y0[4] = 40;//rand()/W;
+    impl->y0[4] = 200;//rand()/W;
     impl->x0[5] = 180;//rand()%W;
     impl->y0[5] = 100;//rand()/W;
     impl->x0[6] = 600;//rand()%W;
