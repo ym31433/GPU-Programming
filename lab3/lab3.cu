@@ -214,7 +214,7 @@ void PoissonImageCloning(
     );
 
 
-    for (int i = 0; i != 100; ++i)
+    for (int i = 0; i != 150; ++i)
     downsampleClone<<<dim3(CeilDiv(wt,32), CeilDiv(ht,16)), dim3(32,16)>>>(
         background, target, mask, output,
         wb, hb, wt, ht, oy, ox, 2
@@ -225,7 +225,7 @@ void PoissonImageCloning(
         wb, hb, wt, ht, oy, ox, 2
     );
 
-	for(int i = 0; i != 50; ++i) {
+	for(int i = 0; i != 100; ++i) {
         //w = (i < 50)? 1.05f: 1;
 	    SimpleClone<<<dim3(CeilDiv(wt,32), CeilDiv(ht,16)), dim3(32,16)>>>(
 		    background, target, mask, output, temp,
