@@ -1,6 +1,6 @@
 EXE = lab3
 all:$(EXE)
-	rm *.o
+	#rm *.o
 	./$(EXE) img_background.ppm img_target.ppm img_mask.pgm 130 600 output.ppm
 $(EXE): main.cu $(EXE).o pgm.o
 	nvcc -std=c++11 -arch=sm_30 -O2 main.cu $(EXE).o pgm.o -o $(EXE)
